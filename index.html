@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMI 健康計算器 & AI 插畫提示詞生成器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans TC"', 'sans-serif'],
+                    },
+                    colors: {
+                        underweight: '#3B82F6',
+                        normal: '#10B981',
+                        overweight: '#F59E0B',
+                        obese1: '#F97316',
+                        obese2: '#EF4444',
+                        obese3: '#991B1B',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            min-height: 100vh;
+        }
+
+        /* Custom styling for range sliders */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #4F46E5;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.4);
+            transition: all 0.15s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #4338CA;
+        }
+
+        /* Smooth gauge indicator translation */
+        .gauge-pointer {
+            transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Toast notification popup */
+        #toast {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.27), opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased p-4 sm:p-6 md:p-10">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <div class="inline-flex items-center justify-center p-3 bg-indigo-600 text-white rounded-2xl shadow-lg mb-3">
+                <i class="fa-solid font-bold fa-heart-pulse text-3xl"></i>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">BMI 健康分析器</h1>
+            <p class="text-slate-500 mt-2 text-sm sm:text-base">符合台灣衛福部標準，即時算體重、看建議、生成 AI 插畫 Prompt</p>
+        </header>
+
+        <!-- Main Grid Container -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Input Form -->
+            <div class="lg:col-span-5 bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-white/60 flex flex-col justify-between">
+                <div>
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-600"></i> 輸入生理數據
+                        </h2>
+                        <!-- Gender Toggle -->
+                        <div class="flex rounded-lg bg-slate-100 p-1 text-xs font-semibold">
+                            <button id="btnMale" class="px-3 py-1.5 rounded-md bg-white text-indigo-600 shadow-sm transition">男性</button>
+                            <button id="btnFemale" class="px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800 transition">女性</button>
+                        </div>
+                    </div>
+
+                    <!-- Height Input -->
+                    <div class="mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="heightInput" class="font-semibold text-slate-700 text-sm">身高 (cm)</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="heightInput" min="100" max="230" value="170" class="w-20 text-right font-bold text-lg text-indigo-600 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <span class="text-slate-400 text-xs">cm</span>
+                            </div>
+                        </div>
+                        <input type="range" id="heightSlider" min="100" max="220" value="170" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                            <span>100 cm</span>
+                            <span>160 cm</span>
+                            <span>220 cm</span>
+                        </div>
+                    </div>
+
+                    <!-- Weight Input -->
+                    <div class="mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <label for="weightInput" class="font-semibold text-slate-700 text-sm">體重 (kg)</label>
+                            <div class="flex items-center gap-1">
+                                <input type="number" id="weightInput" min="30" max="180" value="65" class="w-20 text-right font-bold text-lg text-indigo-600 bg-white border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                <span class="text-slate-400 text-xs">kg</span>
+                            </div>
+                        </div>
+                        <input type="range" id="weightSlider" min="30" max="160" value="65" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[11px] text-slate-400 mt-1">
+                            <span>30 kg</span>
+                            <span>95 kg</span>
+                            <span>160 kg</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Tips Card -->
+                <div class="p-3 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-3">
+                    <i class="fa-solid fa-lightbulb text-amber-500 text-lg mt-0.5"></i>
+                    <p class="text-xs text-amber-800 leading-relaxed">
+                        BMI 僅適用於一般成年人（18歲以上）。運動員、孕婦或高肌群訓練者建議參考體脂率。
+                    </p>
+                </div>
+            </div>
+
+            <!-- Right Column: Results and Analysis -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Main Result Display Card -->
+                <div class="bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-white/60">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                        <div class="text-center sm:text-left">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">您的 BMI 指數</span>
+                            <div class="flex items-baseline gap-2 justify-center sm:justify-start">
+                                <span id="bmiScore" class="text-5xl font-extrabold text-slate-800 tracking-tight">22.5</span>
+                                <span id="categoryBadge" class="px-3 py-1 rounded-full text-xs font-bold text-white bg-emerald-500">正常體重</span>
+                            </div>
+                        </div>
+
+                        <!-- Ideal Weight Range Box -->
+                        <div class="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-100 text-center sm:text-right w-full sm:w-auto">
+                            <span class="text-xs text-slate-400 font-medium block">建議理想體重範圍</span>
+                            <span id="idealWeightRange" class="text-base font-bold text-indigo-600">53.5 - 69.1 kg</span>
+                        </div>
+                    </div>
+
+                    <!-- Visual BMI Scale Bar -->
+                    <div class="mt-6">
+                        <div class="flex justify-between items-center text-xs font-semibold text-slate-500 mb-2">
+                            <span>衛福部標準等級</span>
+                            <span id="pointerValText" class="text-indigo-600 font-bold">BMI 22.5</span>
+                        </div>
+
+                        <!-- Progress Bar Container -->
+                        <div class="relative py-3">
+                            <div class="h-4 w-full rounded-full flex overflow-hidden shadow-inner bg-slate-100">
+                                <div class="h-full bg-blue-500 w-[18.5%]" title="過輕 (<18.5)"></div>
+                                <div class="h-full bg-emerald-500 w-[27.5%]" title="正常 (18.5-23.9)"></div>
+                                <div class="h-full bg-amber-500 w-[15%]" title="過重 (24-26.9)"></div>
+                                <div class="h-full bg-orange-500 w-[15%]" title="輕度肥胖 (27-29.9)"></div>
+                                <div class="h-full bg-red-500 w-[25%]" title="中重度肥胖 (>=30)"></div>
+                            </div>
+
+                            <!-- Indicator Arrow Pointer -->
+                            <div id="gaugePointer" class="gauge-pointer absolute top-0 -ml-2.5 flex flex-col items-center" style="left: 45%;">
+                                <div class="w-5 h-5 bg-slate-900 rounded-full border-2 border-white shadow-md flex items-center justify-center">
+                                    <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
+                                </div>
+                                <div class="w-0.5 h-3 bg-slate-900"></div>
+                            </div>
+                        </div>
+
+                        <!-- Scale Labels -->
+                        <div class="flex justify-between text-[10px] sm:text-xs text-slate-400 mt-1 px-1 font-mono">
+                            <span>15</span>
+                            <span>18.5</span>
+                            <span>24.0</span>
+                            <span>27.0</span>
+                            <span>30.0</span>
+                            <span>35+</span>
+                        </div>
+                    </div>
+
+                    <!-- Health Advice Box -->
+                    <div id="adviceBox" class="mt-6 p-4 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-start gap-3">
+                        <div id="adviceIcon" class="text-emerald-600 text-xl mt-0.5">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <div>
+                            <h4 id="adviceTitle" class="font-bold text-sm text-emerald-900">體型非常標準！</h4>
+                            <p id="adviceText" class="text-xs text-emerald-700 leading-relaxed mt-0.5">
+                                請繼續保持均衡飲食與規律運動習慣，定期健檢維護身體健康。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Prompt Generator Card -->
+                <div class="bg-gradient-to-r from-indigo-900 to-purple-900 rounded-3xl p-6 shadow-xl text-white">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-lg"></i>
+                            <h3 class="font-bold text-base">AI 圖像 Prompt 生成器</h3>
+                        </div>
+                        <span class="text-[11px] bg-white/10 px-2.5 py-1 rounded-full text-indigo-200">一鍵複製</span>
+                    </div>
+
+                    <p class="text-xs text-indigo-200 mb-4 leading-relaxed">
+                        根據您目前的算出的體型，自動組合可用於 Midjourney / Gemini Imagen 的繪圖提示詞：
+                    </p>
+
+                    <!-- Prompt Display Area -->
+                    <div class="bg-black/30 border border-white/10 rounded-2xl p-3.5 mb-4 relative group">
+                        <p id="promptOutput" class="text-sm font-mono text-indigo-100 leading-relaxed pr-8">
+                            一位體型正常的人，微笑站在體重計上，極簡手繪插畫風格，溫暖明亮色彩，高清細節
+                        </p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-wrap gap-3">
+                        <button id="btnCopyPrompt" class="flex-1 bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition shadow-md active:scale-95">
+                            <i class="fa-solid fa-copy"></i> 複製 Prompt
+                        </button>
+                        <button id="btnRefreshStyle" class="bg-white/10 hover:bg-white/20 text-white font-medium py-2.5 px-4 rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition border border-white/10">
+                            <i class="fa-solid fa-rotate"></i> 切換畫風
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Reference Footer -->
+        <footer class="mt-8 text-center text-xs text-slate-400 border-t border-slate-200/60 pt-4">
+            <p>BMI 資料來源：衛生福利部國民健康署（國健署）成人體重過重與肥胖判定標準</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs sm:text-sm font-medium px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 opacity-0 pointer-events-none transform translate-y-4">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">已複製 Prompt 到剪貼簿！</span>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // DOM Elements
+            const heightInput = document.getElementById('heightInput');
+            const heightSlider = document.getElementById('heightSlider');
+            const weightInput = document.getElementById('weightInput');
+            const weightSlider = document.getElementById('weightSlider');
+            
+            const bmiScoreEl = document.getElementById('bmiScore');
+            const categoryBadge = document.getElementById('categoryBadge');
+            const idealWeightRange = document.getElementById('idealWeightRange');
+            const pointerValText = document.getElementById('pointerValText');
+            const gaugePointer = document.getElementById('gaugePointer');
+            
+            const adviceBox = document.getElementById('adviceBox');
+            const adviceIcon = document.getElementById('adviceIcon');
+            const adviceTitle = document.getElementById('adviceTitle');
+            const adviceText = document.getElementById('adviceText');
+            
+            const promptOutput = document.getElementById('promptOutput');
+            const btnCopyPrompt = document.getElementById('btnCopyPrompt');
+            const btnRefreshStyle = document.getElementById('btnRefreshStyle');
+            const btnMale = document.getElementById('btnMale');
+            const btnFemale = document.getElementById('btnFemale');
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+
+            // Style variations for AI Prompts
+            const artStyles = [
+                "極簡手繪插畫風格，溫暖明亮色彩，高清細節",
+                "日系清新動漫繪本風格，柔和粉彩配色，採光自然",
+                "扁平化 2D 向量插畫，鮮豔現代色彩，簡潔線條",
+                "溫馨水彩繪本風格，柔和光影，乾淨背景",
+                "3D 黏土卡通造型風格，可愛立體感，明亮燈光"
+            ];
+            let currentStyleIndex = 0;
+            let currentGender = "男性";
+
+            // BMI Categories based on Taiwan MOHW standards
+            function getBMICategory(bmi) {
+                if (bmi < 18.5) {
+                    return {
+                        label: '體重過輕',
+                        color: 'bg-blue-500',
+                        textColor: 'text-blue-900',
+                        bgColor: 'bg-blue-50',
+                        borderColor: 'border-blue-100',
+                        icon: '<i class="fa-solid fa-circle-info"></i>',
+                        title: '體重稍微偏輕',
+                        advice: '建議適度增加蛋白質攝取，並搭配阻力運動增肌，維護良好免疫力。',
+                        promptTag: '體型纖細瘦弱'
+                    };
+                } else if (bmi < 24.0) {
+                    return {
+                        label: '正常體重',
+                        color: 'bg-emerald-500',
+                        textColor: 'text-emerald-900',
+                        bgColor: 'bg-emerald-50',
+                        borderColor: 'border-emerald-100',
+                        icon: '<i class="fa-solid fa-circle-check"></i>',
+                        title: '體型非常標準！',
+                        advice: '請繼續保持均衡飲食與規律運動習慣，定期健檢維護身體健康。',
+                        promptTag: '體型標準適中'
+                    };
+                } else if (bmi < 27.0) {
+                    return {
+                        label: '過重',
+                        color: 'bg-amber-500',
+                        textColor: 'text-amber-900',
+                        bgColor: 'bg-amber-50',
+                        borderColor: 'border-amber-100',
+                        icon: '<i class="fa-solid fa-triangle-exclamation"></i>',
+                        title: '體重稍微過重',
+                        advice: '注意日常飲食份量與含糖飲料攝取，每週進行至少 150 分鐘的中強度有氧運動。',
+                        promptTag: '體型稍顯豐滿'
+                    };
+                } else if (bmi < 30.0) {
+                    return {
+                        label: '輕度肥胖',
+                        color: 'bg-orange-500',
+                        textColor: 'text-orange-900',
+                        bgColor: 'bg-orange-50',
+                        borderColor: 'border-orange-100',
+                        icon: '<i class="fa-solid fa-triangle-exclamation"></i>',
+                        title: '進入輕度肥胖範圍',
+                        advice: '建議調整飲食結構，減少高油脂與高熱量食物，並尋求專業營養師協助。',
+                        promptTag: '體型圓潤胖乎乎'
+                    };
+                } else if (bmi < 35.0) {
+                    return {
+                        label: '中度肥胖',
+                        color: 'bg-red-500',
+                        textColor: 'text-red-900',
+                        bgColor: 'bg-red-50',
+                        borderColor: 'border-red-100',
+                        icon: '<i class="fa-solid fa-triangle-exclamation"></i>',
+                        title: '屬於中度肥胖',
+                        advice: '建議制定減重計畫，逐步建立健康習慣，保護心血管與關節健康。',
+                        promptTag: '體型魁梧圓滾滾'
+                    };
+                } else {
+                    return {
+                        label: '重度肥胖',
+                        color: 'bg-red-800',
+                        textColor: 'text-red-950',
+                        bgColor: 'bg-red-100',
+                        borderColor: 'border-red-200',
+                        icon: '<i class="fa-solid fa-circle-exclamation"></i>',
+                        title: '屬於重度肥胖',
+                        advice: '建議諮詢醫師或醫療團隊，進行系統性的健康管理與醫療建議。',
+                        promptTag: '體型極為魁梧龐大'
+                    };
+                }
+            }
+
+            // Map BMI (15 to 35+) to gauge percentage (0% to 100%)
+            function getGaugePercentage(bmi) {
+                if (bmi <= 15) return 0;
+                if (bmi >= 35) return 100;
+
+                if (bmi < 18.5) {
+                    // Range 15 - 18.5 -> 0% to 18.5%
+                    return ((bmi - 15) / (18.5 - 15)) * 18.5;
+                } else if (bmi < 24.0) {
+                    // Range 18.5 - 24.0 -> 18.5% to 46%
+                    return 18.5 + ((bmi - 18.5) / (24.0 - 18.5)) * 27.5;
+                } else if (bmi < 27.0) {
+                    // Range 24.0 - 27.0 -> 46% to 61%
+                    return 46 + ((bmi - 24.0) / (27.0 - 24.0)) * 15;
+                } else if (bmi < 30.0) {
+                    // Range 27.0 - 30.0 -> 61% to 76%
+                    return 61 + ((bmi - 27.0) / (30.0 - 27.0)) * 15;
+                } else {
+                    // Range 30.0 - 35.0 -> 76% to 100%
+                    return 76 + Math.min(((bmi - 30.0) / (35.0 - 30.0)) * 24, 24);
+                }
+            }
+
+            // Main Calculate & Render UI Function
+            function calculateAndRender() {
+                const h = parseFloat(heightInput.value);
+                const w = parseFloat(weightInput.value);
+
+                if (!h || !w || h <= 0 || w <= 0) return;
+
+                // Calculate BMI
+                const hInMeters = h / 100;
+                const bmi = w / (hInMeters * hInMeters);
+                const bmiFormatted = bmi.toFixed(1);
+
+                // Calculate Healthy Weight Range (BMI 18.5 ~ 23.9)
+                const minIdealW = (18.5 * hInMeters * hInMeters).toFixed(1);
+                const maxIdealW = (23.9 * hInMeters * hInMeters).toFixed(1);
+
+                // Get Category info
+                const category = getBMICategory(bmi);
+
+                // Update BMI Number & Badge
+                bmiScoreEl.innerText = bmiFormatted;
+                categoryBadge.innerText = category.label;
+                categoryBadge.className = `px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm ${category.color}`;
+
+                // Update Ideal Weight
+                idealWeightRange.innerText = `${minIdealW} - ${maxIdealW} kg`;
+
+                // Update Pointer
+                pointerValText.innerText = `BMI ${bmiFormatted}`;
+                const percentage = getGaugePercentage(bmi);
+                gaugePointer.style.left = `calc(${percentage}% - 0px)`;
+
+                // Update Health Advice Box
+                adviceBox.className = `mt-6 p-4 rounded-2xl ${category.bgColor} border ${category.borderColor} flex items-start gap-3 transition-all`;
+                adviceIcon.className = `${category.textColor} text-xl mt-0.5`;
+                adviceIcon.innerHTML = category.icon;
+                adviceTitle.className = `font-bold text-sm ${category.textColor}`;
+                adviceTitle.innerText = category.title;
+                adviceText.className = `text-xs ${category.textColor} opacity-90 leading-relaxed mt-0.5`;
+                adviceText.innerText = category.advice;
+
+                // Update Prompt Output
+                updatePromptText(category.promptTag);
+            }
+
+            // Generate AI Prompt Text
+            function updatePromptText(promptTag) {
+                const currentStyle = artStyles[currentStyleIndex];
+                promptOutput.innerText = `一位${promptTag}的${currentGender}，微笑站在體重計上，${currentStyle}`;
+            }
+
+            // Copy to Clipboard Toast
+            function copyPromptToClipboard() {
+                const textToCopy = promptOutput.innerText;
+                
+                // Fallback copy logic for iframe safety
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = textToCopy;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                try {
+                    document.execCommand('copy');
+                    showToast("已成功複製 Prompt 到剪貼簿！");
+                } catch (err) {
+                    showToast("複製失敗，請手動複製");
+                }
+                document.body.removeChild(tempTextArea);
+            }
+
+            function showToast(msg) {
+                toastMsg.innerText = msg;
+                toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                toast.classList.add('opacity-100', 'translate-y-0');
+                
+                setTimeout(() => {
+                    toast.classList.remove('opacity-100', 'translate-y-0');
+                    toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+                }, 2500);
+            }
+
+            // Sync Input and Slider controls
+            heightInput.addEventListener('input', (e) => {
+                heightSlider.value = e.target.value;
+                calculateAndRender();
+            });
+
+            heightSlider.addEventListener('input', (e) => {
+                heightInput.value = e.target.value;
+                calculateAndRender();
+            });
+
+            weightInput.addEventListener('input', (e) => {
+                weightSlider.value = e.target.value;
+                calculateAndRender();
+            });
+
+            weightSlider.addEventListener('input', (e) => {
+                weightInput.value = e.target.value;
+                calculateAndRender();
+            });
+
+            // Switch Gender
+            btnMale.addEventListener('click', () => {
+                currentGender = "男性";
+                btnMale.className = "px-3 py-1.5 rounded-md bg-white text-indigo-600 shadow-sm transition";
+                btnFemale.className = "px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800 transition";
+                calculateAndRender();
+            });
+
+            btnFemale.addEventListener('click', () => {
+                currentGender = "女性";
+                btnFemale.className = "px-3 py-1.5 rounded-md bg-white text-indigo-600 shadow-sm transition";
+                btnMale.className = "px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800 transition";
+                calculateAndRender();
+            });
+
+            // Switch Prompt Art Style
+            btnRefreshStyle.addEventListener('click', () => {
+                currentStyleIndex = (currentStyleIndex + 1) % artStyles.length;
+                calculateAndRender();
+            });
+
+            // Copy Prompt Button
+            btnCopyPrompt.addEventListener('click', copyPromptToClipboard);
+
+            // Initial calculation on load
+            calculateAndRender();
+        });
+    </script>
+</body>
+</html>
